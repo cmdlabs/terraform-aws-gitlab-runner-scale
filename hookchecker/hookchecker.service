@@ -1,0 +1,13 @@
+[Unit]
+Description=Handle the runner Lifecycle
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/hookchecker
+Restart=on-abort
+
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,25 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": [
+        "autoscaling:RecordLifecycleActionHeartbeat",
+        "autoscaling:CompleteLifecycleAction"
+      ],
+      "Effect": "Allow",
+      "Resource": "${autoscaling_group_arn}"
+    },
+    {
+      "Action": [
+          "logs:CreateLogStream",
+          "logs:CreateLogGroup",
+          "logs:DescribeLogStreams",
+          "logs:PutLogEvents"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+          "arn:aws:logs:*:*:*"
+      ]
+    }
+  ]
+}
