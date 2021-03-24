@@ -5,3 +5,4 @@ terraform.tfstate
 terraform.tfstate.backup
 function
 function_payload.zip
+.terraform.lock.hcl
