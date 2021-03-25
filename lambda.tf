@@ -1,12 +1,12 @@
 locals {
-  lambda_name = "push-gitlab-pending-jobs-metric"
-  lambda_folder = "function"
+  lambda_name         = "push-gitlab-pending-jobs-metric"
+  lambda_folder       = "function"
   lambda_payload_name = "function_payload.zip"
 }
 
 resource "null_resource" "build" {
   triggers = {
-    requirements = filebase64sha256("function/requirements.txt")
+    requirements = filebase64sha256("${path.module}/function/requirements.txt")
   }
 
   provisioner "local-exec" {
@@ -26,7 +26,7 @@ data "null_data_source" "build_dep" {
 
 data "archive_file" "lambda_payload" {
   type        = "zip"
-  source_dir = data.null_data_source.build_dep.outputs.source_dir
+  source_dir  = data.null_data_source.build_dep.outputs.source_dir
   output_path = local.lambda_payload_name
 }
 
@@ -35,8 +35,8 @@ resource "aws_lambda_function" "push_gitlab_pending_jobs_metric" {
   function_name = local.lambda_name
   role          = aws_iam_role.lambda_gitlab_metric.arn
   handler       = "${local.lambda_name}.handler"
-  timeout = 60
-  memory_size = 512
+  timeout       = 60
+  memory_size   = 512
 
   runtime = var.lambda_runtime
 
@@ -44,12 +44,12 @@ resource "aws_lambda_function" "push_gitlab_pending_jobs_metric" {
 
   environment {
     variables = {
-      GITLAB_URI = var.gitlab.uri
-      TOKEN_SSM_PATH = var.gitlab.api_token_ssm_path
-      ASG_NAME = aws_autoscaling_group.runner.name
+      GITLAB_URI           = var.gitlab.uri
+      TOKEN_SSM_PATH       = var.gitlab.api_token_ssm_path
+      ASG_NAME             = aws_autoscaling_group.runner.name
       RUNNERS_PER_INSTANCE = var.gitlab.runner_agents_per_instance
       NARROW_TO_MEMBERSHIP = var.gitlab.narrow_to_membership
-      LOG_LEVEL = var.gitlab.log_level
+      LOG_LEVEL            = var.gitlab.log_level
     }
   }
 
