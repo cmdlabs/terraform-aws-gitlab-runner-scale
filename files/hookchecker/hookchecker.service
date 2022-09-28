@@ -8,6 +8,5 @@ User=root
 ExecStart=/usr/bin/hookchecker
 Restart=on-abort
 
-
 [Install]
 WantedBy=multi-user.target

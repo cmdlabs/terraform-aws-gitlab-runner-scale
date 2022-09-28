@@ -9,7 +9,10 @@ import subprocess
 from botocore.exceptions import ClientError
 
 LOG_FILENAME = '/var/log/hookchecker.log'
-LOG_LEVEL = logging.DEBUG
+LOG_LEVEL_RAW = '${LOG_LEVEL}'
+LOG_LEVEL = logging.INFO
+if LOG_LEVEL_RAW.lower() == 'debug':
+    LOG_LEVEL = logging.DEBUG
 
 LOGGER = logging.getLogger('myLogger')
 LOGGER.setLevel(LOG_LEVEL)
@@ -57,14 +60,6 @@ def describe_auto_scaling_instances(instance_ids):
     return asg_client.describe_auto_scaling_instances(InstanceIds=instance_ids)
 
 
-@backoff.on_exception(backoff.expo,
-                      ClientError,
-                      max_tries=MAX_RETRIES,
-                      giveup=no_request_limit_exceeded_code)
-def record_lifecycle_action_heartbeat(**kwargs):
-    return asg_client.record_lifecycle_action_heartbeat(**kwargs)
-
-
 def get_runners():
     runner_found = False
     rtoken = None
@@ -90,7 +85,7 @@ def get_runners():
 
 
 def deregister_runners():
-    LOGGER.info('Start deregistring the runned')
+    LOGGER.info('Start deregistring the runner')
     unregister_command_pattern = 'gitlab-runner unregister --url {url} --token {token}'
     runners = get_runners()
     for runner in runners:
@@ -112,18 +107,12 @@ def wait_for_running_job_to_finish(lh_name, asg_name, instance_id):
         time.sleep(5)
         res = subprocess.check_output(running_processes_cmd.split())
         for process in res.split('\n'):
-            if "/bin/bash gitlab-runner" in process:
-                LOGGER.debug("Found runner still running: \n%s" % process)
+            if "/bin/bash gitlab-runner" in process or "containerd-shim-runc-v2" in process:
+                LOGGER.info("Runner still executing a job")
+                LOGGER.debug("Process related to executing the job: \n%s" % process)
                 running_jobs = True
                 break
-        if running_jobs:
-            LOGGER.debug("Refreshing the lifecycle hook heartbeat")
-            record_lifecycle_action_heartbeat(
-                LifecycleHookName=lh_name,
-                AutoScalingGroupName=asg_name,
-                InstanceId=instance_id
-            )
-    LOGGER.info("There are no (more) running runners!")
+    LOGGER.info("There are no (more) running jobs!")
 
 
 @backoff.on_exception(backoff.expo,
@@ -156,7 +145,7 @@ while loop:
         lifecycle_state = instance['LifecycleState']
         asg_name = instance['AutoScalingGroupName']
         if lifecycle_state == "Terminating:Wait":
-            LOGGER.info('This instance is in Terminating:Wait lyfecycle state'. format())
+            LOGGER.info('This instance is in Terminating:Wait lifecycle state'. format())
             deregister_runners()
             lh_name = None
             res = describe_lifecycle_hooks(AutoScalingGroupName=asg_name)
@@ -164,7 +153,7 @@ while loop:
                 if lhook['LifecycleTransition'] == 'autoscaling:EC2_INSTANCE_TERMINATING':
                     lh_name = lhook['LifecycleHookName']
             wait_for_running_job_to_finish(lh_name, asg_name, instance_id)
-            LOGGER.info('Sending complete lyfecycle action')
+            LOGGER.info('Sending complete lifecycle action')
             r = complete_lifecycle_action(
                 LifecycleHookName=lh_name,
                 AutoScalingGroupName=asg_name,

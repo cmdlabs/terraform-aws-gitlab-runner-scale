@@ -1,0 +1,10 @@
+envvars:
+  - name: AWS_PROFILE
+    tags:
+      - terraform
+  - name: AWS_REGION
+    tags:
+      - terraform
+tags:
+  - name: terraform
+    desc: Required to run Terraform commands

@@ -1,0 +1,30 @@
+version: "3.8"
+services:
+  envvars:
+    image: flemay/envvars:0.0.8
+    env_file: .env
+    volumes:
+      - .:/work
+    working_dir: /work
+
+  terraform:
+    build:
+      context: ./
+      dockerfile: Dockerfile-terraform
+    entrypoint: ""
+    env_file: .env
+    environment:
+      - AWS_SDK_LOAD_CONFIG=1
+    volumes:
+      - .:/work
+      - ~/.aws:/root/.aws
+    working_dir: /work
+
+  terraform-docs:
+    image: quay.io/terraform-docs/terraform-docs:0.16.0
+    environment:
+      - AWS_SDK_LOAD_CONFIG=1
+    volumes:
+      - .:/work
+      - ~/.aws:/root/.aws
+    working_dir: /work

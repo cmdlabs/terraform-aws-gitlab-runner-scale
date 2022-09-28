@@ -1,23 +1,25 @@
 data "aws_ami" "amazonlinux2" {
- most_recent = true
 
- filter {
-   name   = "owner-alias"
-   values = ["amazon"]
- }
+  count = var.asg.image_id == "" ? 1 : 0
 
- filter {
-   name   = "name"
-   values = ["amzn2-ami-hvm*"]
- }
+  filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm*"]
+  }
+  filter {
+    name   = "owner-alias"
+    values = ["amazon"]
+  }
 
- owners = ["amazon"] # Canonical
+  most_recent = true
+  owners      = ["amazon"] # Canonical
 }
 
 data "aws_caller_identity" "current" {}
 
 data "aws_region" "current" {}
 
-data "aws_ssm_parameter" "runner_registration_token" {
-  name = var.gitlab.runner_registration_token_ssm_path
+# Assumes all of the subnets are in the same VPC hence we only need to take the first
+data "aws_subnet" "current" {
+  id = var.asg.subnet_ids[0]
 }

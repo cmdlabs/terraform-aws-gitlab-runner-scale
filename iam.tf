@@ -1,63 +1,143 @@
-resource "aws_iam_role" "ec2_runner" {
-  name               = "gitlab-runner"
-  assume_role_policy = file("${path.module}/iam/services/ec2.json")
-}
-
-data "template_file" "ec2_runner_policy" {
-  template = file("${path.module}/iam/ec2_runner_policy.json")
-  vars = {
-    autoscaling_group_arn = aws_autoscaling_group.runner.arn
+data "aws_iam_policy_document" "runner_assume_role" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    effect  = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["ec2.amazonaws.com"]
+    }
   }
 }
 
-resource "aws_iam_policy" "ec2_runner" {
-  name        = "gitlab-runner-asg-hook-write-access"
+resource "aws_iam_role" "runner" {
+  assume_role_policy = data.aws_iam_policy_document.runner_assume_role.json
+  name_prefix        = "gitlab-runner"
+}
+
+data "aws_iam_policy_document" "runner" {
+  statement {
+    actions = [
+      "autoscaling:RecordLifecycleActionHeartbeat",
+      "autoscaling:CompleteLifecycleAction",
+    ]
+    effect = "Allow"
+    resources = [
+      aws_autoscaling_group.runner.arn
+    ]
+  }
+  statement {
+    actions = [
+      "logs:CreateLogStream",
+      "logs:CreateLogGroup",
+      "logs:DescribeLogStreams",
+      "logs:PutLogEvents",
+    ]
+    effect = "Allow"
+    resources = [
+      "${aws_cloudwatch_log_group.runner.arn}:*"
+    ]
+  }
+}
+
+resource "aws_iam_policy" "runner_job" {
+  count = var.asg.job_policy != "" ? 1 : 0
+
+  name_prefix = "gitlab-runner-job-permissions-"
+  description = "Permissions required by the runner job to access AWS resources"
   path        = "/"
+  policy      = var.asg.job_policy
+}
+
+resource "aws_iam_policy" "runner" {
+  name_prefix = "gitlab-runner-asg-hook-write-access-"
   description = "gitlab-runner-asg-hook-write-access"
-
-  policy = data.template_file.ec2_runner_policy.rendered
+  path        = "/"
+  policy      = data.aws_iam_policy_document.runner.json
 }
 
-resource "aws_iam_policy_attachment" "asg-readonly-access-policy-attach" {
-  name       = "gitlab-runner-asg-readonly-access-policy-attachment"
-  roles      = [aws_iam_role.ec2_runner.name]
+resource "aws_iam_role_policy_attachment" "asg_hook_write_access" {
+  policy_arn = aws_iam_policy.runner.arn
+  role       = aws_iam_role.runner.name
+}
+
+resource "aws_iam_role_policy_attachment" "asg_readonly_access" {
   policy_arn = "arn:aws:iam::aws:policy/AutoScalingReadOnlyAccess"
+  role       = aws_iam_role.runner.name
 }
 
-resource "aws_iam_policy_attachment" "asg-hook-write-access-policy-attach" {
-  name       = "gitlab-runner-asg-hook-write-access-policy-attachment"
-  roles      = [aws_iam_role.ec2_runner.name]
-  policy_arn = aws_iam_policy.ec2_runner.arn
+resource "aws_iam_role_policy_attachment" "asg_runner_job" {
+  count = var.asg.job_policy != "" ? 1 : 0
+
+  policy_arn = aws_iam_policy.runner_job[0].arn
+  role       = aws_iam_role.runner.name
+}
+
+resource "aws_iam_role_policy_attachment" "ssm_managed_access" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+  role       = aws_iam_role.runner.name
 }
 
 resource "aws_iam_instance_profile" "runner" {
-  name = "gitlab-runner-fra-instance-profile"
-  role = aws_iam_role.ec2_runner.name
+  name_prefix = "gitlab-runner-instance-profile"
+  role        = aws_iam_role.runner.name
 }
 
-data "template_file" "lambda_gitlab_metric_policy" {
-  template = file("${path.module}/iam/lambda_gitlab_metric_policy.json")
-  vars = {
-    region         = data.aws_region.current.name
-    account_id     = data.aws_caller_identity.current.account_id
-    parameter_path = var.gitlab.api_token_ssm_path
+data "aws_iam_policy_document" "lambda_gitlab_metric" {
+  statement {
+    actions = [
+      "ssm:DescribeParameters",
+      "cloudwatch:PutMetricData",
+      "autoscaling:DescribeAutoScalingGroups",
+    ]
+    effect    = "Allow"
+    resources = ["*"]
+  }
+  statement {
+    actions = [
+      "ssm:GetParameter",
+    ]
+    effect = "Allow"
+    resources = [
+      "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter${var.gitlab.api_token_ssm_path}"
+    ]
+  }
+  statement {
+    actions = [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+    effect = "Allow"
+    resources = [
+      "${aws_cloudwatch_log_group.lambda_push_gitlab_pending_jobs_metric.arn}:*"
+    ]
   }
 }
 
-resource "aws_iam_role" "lambda_gitlab_metric" {
-  name               = "lambda-gitlab-metric"
-  assume_role_policy = file("${path.module}/iam/services/lambda.json")
+data "aws_iam_policy_document" "lambda_assume_role" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    effect  = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "lambda" {
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+  name_prefix        = "lambda-gitlab-metric"
 }
 
 resource "aws_iam_policy" "lambda_gitlab_metric" {
-  name        = "lambda-gitlab-metric-policy"
-  path        = "/"
   description = "IAM policy for lambda push-gitlab-pending-jobs-metric"
-
-  policy = data.template_file.lambda_gitlab_metric_policy.rendered
+  name_prefix = "lambda-gitlab-metric-policy"
+  path        = "/"
+  policy      = data.aws_iam_policy_document.lambda_gitlab_metric.json
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_gitlab_metric" {
-  role       = aws_iam_role.lambda_gitlab_metric.name
   policy_arn = aws_iam_policy.lambda_gitlab_metric.arn
+  role       = aws_iam_role.lambda.name
 }

@@ -3,6 +3,11 @@
 .terraform
 terraform.tfstate
 terraform.tfstate.backup
-function
-function_payload.zip
+function/*
+!function/push-gitlab-pending-jobs-metric.py
+!function/requirements.txt
 .terraform.lock.hcl
+examples/README.md
+.terraform.tfstate.lock.info
+.env
+out.tfstate

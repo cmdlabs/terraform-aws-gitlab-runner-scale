@@ -9,10 +9,15 @@ from datetime import datetime, timedelta
 from botocore.exceptions import ClientError
 
 MAX_RETRIES = 8
+ACTIVITY_SINCE = os.getenv('ACTIVITY_SINCE')
 TOKEN_SSM_PATH = os.getenv('TOKEN_SSM_PATH')
 GITLAB_URI = os.getenv('GITLAB_URI')
 ASG_NAME = os.getenv('ASG_NAME')
+REGION = os.getenv('AWS_REGION')
+RUNNER_JOB_TAGS = [tag.strip() for tag in os.getenv('RUNNER_JOB_TAGS', default="").split(',')]
+HAS_RUNNER_TAGS = any(tag.strip() for tag in RUNNER_JOB_TAGS)
 RUNNERS_PER_INSTANCE = int(os.getenv('RUNNERS_PER_INSTANCE'))
+METRIC_NAMESPACE = os.getenv('METRIC_NAMESPACE')
 NARROW_TO_MEMBERSHIP_RAW = os.getenv('NARROW_TO_MEMBERSHIP')
 NARROW_TO_MEMBERSHIP = True if NARROW_TO_MEMBERSHIP_RAW.lower() == 'true' else False
 LOG_LEVEL_RAW = os.getenv('LOG_LEVEL')
@@ -63,9 +68,9 @@ def get_all_project_ids(token):
     project_ids = []
     link = '{}/api/v4/projects?pagination=keyset&per_page=50&order_by=id&sort=asc&simple=true{}'.format(GITLAB_URI, '&membership=true' if NARROW_TO_MEMBERSHIP else '')
     now = datetime.utcnow()
-    four_hours_ago = now - timedelta(hours=4)
-    four_hours_ago_timestamp_str = '{}Z'.format(four_hours_ago.isoformat(timespec='seconds'))
-    LOGGER.info("Searching for projects with last activity after {}".format(four_hours_ago_timestamp_str))
+    hours_ago = now - timedelta(hours=int(ACTIVITY_SINCE))
+    hours_ago_timestamp_str = '{}Z'.format(hours_ago.isoformat(timespec='seconds'))
+    LOGGER.info("Searching for projects with last activity after {}".format(hours_ago_timestamp_str))
     total_numb_of_projects = 0
     while True:
         res = get_request(link, headers={'PRIVATE-TOKEN': token})
@@ -76,14 +81,14 @@ def get_all_project_ids(token):
             pid = project['id']
             last_activity_str = project['last_activity_at']
             last_activity = datetime.strptime(last_activity_str, '%Y-%m-%dT%H:%M:%S.%fZ')
-            if last_activity > four_hours_ago:
+            if last_activity > hours_ago:
                 LOGGER.debug('Found project with last activity {}'.format(last_activity_str))
                 project_ids.extend([pid])
         if 'Links' not in res.headers:
             break
         link = res.headers['Links'].split('<')[1].split('>')[0]
     LOGGER.info("Found project ids: {}".format(project_ids))
-    LOGGER.info("Number of processed processes: {}".format(total_numb_of_projects))
+    LOGGER.info("Number of projects processes: {}".format(total_numb_of_projects))
     return project_ids
 
 
@@ -94,7 +99,12 @@ def get_pending_jobs(project_id, token):
         LOGGER.error('Error retrieving the jobs of the project id %s. Return code: %s' % (project_id, res.status_code))
         return []
         # raise Exception('Error retrieving the jobs of the project id %s' % project_id)
-    return res.json()
+    job_tag_list = []
+    for job in res.json():
+        # Ensure the runner tags contains all of the job tags
+        if all(item in RUNNER_JOB_TAGS for item in list(filter(None, job['tag_list']))):
+            job_tag_list.append(job)
+    return job_tag_list
 
 
 def get_running_jobs(project_id, token):
@@ -104,7 +114,13 @@ def get_running_jobs(project_id, token):
         LOGGER.error('Error retrieving the jobs of the project id %s. Return code: %s' % (project_id, res.status_code))
         return []
         # raise Exception('Error retrieving the jobs of the project id %s' % project_id)
-    return res.json()
+    # If the job requires runner tags, heck the lambda tags have them all
+    job_tag_list = []
+    for job in res.json():
+        # Ensure the runner tags contains all of the job tags
+        if all(item in RUNNER_JOB_TAGS for item in list(filter(None, job['tag_list']))):
+            job_tag_list.append(job)
+    return job_tag_list
 
 
 def get_all_pending_and_running_job_ids(token):
@@ -114,11 +130,12 @@ def get_all_pending_and_running_job_ids(token):
     for project_id in project_ids:
         pending_jobs = get_pending_jobs(project_id, token)
         running_jobs = get_running_jobs(project_id, token)
+        tag_log = " with {} {}".format("tags" if len(RUNNER_JOB_TAGS) > 1 else "tag", ' or '.join(f'"{item}"' for item in RUNNER_JOB_TAGS)) if HAS_RUNNER_TAGS else ""
         if len(pending_jobs):
-            LOGGER.info("Number of pending jobs for project id {}: {}".format(project_id, len(pending_jobs)))
+            LOGGER.info("Number of pending jobs for project id {}: {}{}".format(project_id, len(pending_jobs),  tag_log))
             pending_job_ids.extend(pending_job['id'] for pending_job in pending_jobs)
         if len(running_jobs):
-            LOGGER.info("Number of running jobs for project id {}: {}".format(project_id, len(running_jobs)))
+            LOGGER.info("Number of running jobs for project id {}: {}".format(project_id, len(running_jobs),  tag_log))
             running_job_ids.extend(running_job['id'] for running_job in running_jobs)
     return pending_job_ids, running_job_ids
 
@@ -144,30 +161,30 @@ def get_asg_healthy_instances_in_service(asg_client):
 
 
 def handler(event, context):
-    region = 'ap-southeast-2'
-    ssm_client = boto3.client('ssm', region_name=region)
+    ssm_client = boto3.client('ssm', region_name=REGION)
     result = get_parameter(ssm_client, Name=TOKEN_SSM_PATH, WithDecryption=True)
     token = result['Parameter']['Value']
 
     pending_jobs, running_jobs = get_number_of_pending_and_running_jobs(token)
-    LOGGER.info("Total number of pending jobs: {}".format(pending_jobs))
-    LOGGER.info("Total number of running jobs: {}".format(running_jobs))
+    tag_log = " with {} {}".format("tags" if len(RUNNER_JOB_TAGS) > 1 else "tag", ' or '.join(f'"{item}"' for item in RUNNER_JOB_TAGS)) if HAS_RUNNER_TAGS else ""
+    LOGGER.info("Total number of pending jobs: {}{}".format(pending_jobs, tag_log))
+    LOGGER.info("Total number of running jobs: {}{}".format(running_jobs, tag_log))
 
-    asg_client = boto3.client('autoscaling', region_name=region)
+    asg_client = boto3.client('autoscaling', region_name=REGION)
     healthy_instances_in_service = get_asg_healthy_instances_in_service(asg_client)
     LOGGER.info("Number of HEALTHY instances: {}".format(healthy_instances_in_service))
 
     runners_overall_load = 100
     if healthy_instances_in_service:
-        runners_overall_load = float(100 * running_jobs) / float(healthy_instances_in_service * RUNNERS_PER_INSTANCE)
+        runners_overall_load = float(100 * (pending_jobs + running_jobs)) / float(healthy_instances_in_service * RUNNERS_PER_INSTANCE)
     LOGGER.info("Runners overall load: {}".format(runners_overall_load))
 
-    cw_client = boto3.client('cloudwatch', region_name=region)
+    cw_client = boto3.client('cloudwatch', region_name=REGION)
     timestamp = time.time()
 
     put_metric_data(
         cw_client,
-        Namespace='GitLab',
+        Namespace=METRIC_NAMESPACE,
         MetricData=[
             {
                 'MetricName': 'NumberOfPendingJobs',

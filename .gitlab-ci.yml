@@ -1,0 +1,47 @@
+image: hashicorp/terraform:1.3.4
+
+stages:
+  - format
+  - docs
+  - publish
+
+format:
+  image:
+    name: hashicorp/terraform:1.3.4
+  script:
+    - terraform fmt -recursive -check -diff
+  stage: format
+  tags:
+    - cmd
+
+docs:
+  image:
+    name: quay.io/terraform-docs/terraform-docs:0.16.0
+  script:
+    - terraform-docs --output-check=true .
+    - find ./examples -maxdepth 1 -type d -exec terraform-docs --output-check=true {} \;
+  stage: docs
+  tags:
+    - cmd
+
+publish:
+  before_script:
+    - apk add curl
+  image:
+    name: alpine/git:latest
+  only:
+    - master
+    - tags
+  script:
+    - git fetch --all
+    - git remote add github "https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/cmdlabs/${CI_PROJECT_NAME}"
+    - git checkout master
+    - git pull origin master
+    - git push --follow-tags github master
+    - >
+      curl -X POST -H 'Content-type: application/json' --data '{"text":"A new commit has been published to Github\nProject: ${CI_PROJECT_NAME}\nRef: ${CI_COMMIT_REF_NAME}\nDiff: https://github.com/cmdlabs/${CI_PROJECT_NAME]/commit/${CI_COMMIT_SHA}"}' ${GIT_PUBLISHING_WEBHOOK}
+  stage: publish
+  tags:
+    - cmd
+  variables:
+    GIT_STRATEGY: clone

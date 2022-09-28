@@ -1,50 +1,60 @@
+resource "random_string" "rule_suffix" {
+  length  = 8
+  lower   = true
+  special = false
+}
+
 resource "aws_cloudwatch_event_rule" "lambda_push_gitlab_pending_jobs_metric" {
-  name        = "lambda-push-gitlab-pending-jobs-metric"
-  description = "Trigger the lambda push-gitlab-pending-jobs-metric"
-  schedule_expression = "rate(1 minute)"
+  count = var.lambda.rate != "off" ? 1 : 0
+
+  name_prefix         = "lambda-push-gitlab-pending-jobs-metric"
+  description         = "Trigger the lambda push-gitlab-pending-jobs-metric"
+  schedule_expression = var.lambda.rate
 }
 
 resource "aws_cloudwatch_event_target" "lambda_push_gitlab_pending_jobs_metric" {
-  rule      = aws_cloudwatch_event_rule.lambda_push_gitlab_pending_jobs_metric.name
-  target_id = "SendToLambda"
-  arn       = aws_lambda_function.push_gitlab_pending_jobs_metric.arn
+  count = var.lambda.rate != "off" ? 1 : 0
+
+  arn  = aws_lambda_function.push_gitlab_pending_jobs_metric.arn
+  rule = aws_cloudwatch_event_rule.lambda_push_gitlab_pending_jobs_metric[0].name
 }
 
 resource "aws_cloudwatch_log_group" "lambda_push_gitlab_pending_jobs_metric" {
   name              = "/aws/lambda/${aws_lambda_function.push_gitlab_pending_jobs_metric.function_name}"
-  retention_in_days = 14
+  retention_in_days = 30
 }
 
 resource "aws_cloudwatch_metric_alarm" "gitlab_pending_jobs" {
-  alarm_name                = "GitlabPendingJobs"
-  comparison_operator       = "GreaterThanThreshold"
-  threshold                 = "0"
-  evaluation_periods        = "2"
-  metric_name               = "NumberOfPendingJobs"
-  namespace                 = "GitLab"
+  alarm_actions       = [aws_autoscaling_policy.gitlab_runners_scale_out.arn]
+  alarm_description   = "This metric monitors the presence of pending jobs in gitlab ${var.gitlab.uri}"
+  alarm_name          = "GitlabPendingJobs-${random_string.rule_suffix.result}"
+  comparison_operator = "GreaterThanThreshold"
   dimensions = {
     "Job Status" = "Pending"
   }
+  evaluation_periods        = "1"
+  insufficient_data_actions = []
+  metric_name               = "NumberOfPendingJobs"
+  namespace                 = local.metric_namespace
   period                    = "60"
   statistic                 = "Average"
-  alarm_description         = "This metric monitors the presence of pending jobs in gitlab ${var.gitlab.uri}"
-  insufficient_data_actions = []
-  alarm_actions             = [aws_autoscaling_policy.gitlab_runners_scale_out.arn]
+  threshold                 = "0"
 }
 
 resource "aws_cloudwatch_metric_alarm" "gitlab_reduntant_runners" {
-  alarm_name                = "GitlabRedundantRunners"
-  comparison_operator       = "LessThanThreshold"
-  threshold                 = "80"
-  evaluation_periods        = "2"
-  metric_name               = "RunnersOverallLoad"
-  namespace                 = "GitLab"
+  alarm_actions       = [aws_autoscaling_policy.gitlab_runners_scale_in.arn]
+  alarm_description   = "This metric monitors the load of runners in gitlab ${var.gitlab.uri}"
+  alarm_name          = "GitlabRedundantRunners-${random_string.rule_suffix.result}"
+  comparison_operator = "LessThanThreshold"
+  datapoints_to_alarm = var.gitlab.runner_idletime
   dimensions = {
     "Runners Overall Load" = "OverallLoadPercentage"
   }
-  period                    = "60"
-  statistic                 = "Average"
-  alarm_description         = "This metric monitors the load of runners in gitlab ${var.gitlab.uri}"
+  evaluation_periods        = var.gitlab.runner_idletime
   insufficient_data_actions = []
-  alarm_actions             = [aws_autoscaling_policy.gitlab_runners_scale_in.arn]
+  metric_name               = "RunnersOverallLoad"
+  namespace                 = local.metric_namespace
+  period                    = "60"
+  statistic                 = "Minimum"
+  threshold                 = "80"
 }
