@@ -3,7 +3,6 @@ module "gitlab-runner" {
 
   asg = {
     associate_public_ip_address = true
-    desired_capacity            = 1
     instance_type               = "t3.micro"
     job_policy                  = <<EOF
 {

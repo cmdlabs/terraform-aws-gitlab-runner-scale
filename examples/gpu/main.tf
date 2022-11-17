@@ -16,7 +16,6 @@ module "gitlab-runner" {
 
   asg = {
     associate_public_ip_address = false
-    desired_capacity            = 1
     instance_type               = "p3.2xlarge"
     max_size                    = 1
     min_size                    = 0

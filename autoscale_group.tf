@@ -18,12 +18,12 @@ resource "aws_launch_configuration" "runner" {
     executor   = local.executor
     gitlab_url = var.gitlab.uri
     hookchecker_py_content = templatefile(
-      "${path.module}/files/hookchecker/hookchecker.py",
+      "${path.module}/templates/hookchecker/hookchecker.py",
       {
         LOG_LEVEL = var.asg.log_level,
       },
     )
-    hookchecker_service_content        = file("${path.module}/files/hookchecker/hookchecker.service")
+    hookchecker_service_content        = file("${path.module}/templates/hookchecker/hookchecker.service")
     log_group                          = aws_cloudwatch_log_group.runner.name
     num_runners                        = var.gitlab.runner_agents_per_instance
     region                             = data.aws_region.current.name

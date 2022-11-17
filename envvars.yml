@@ -5,6 +5,39 @@ envvars:
   - name: AWS_REGION
     tags:
       - terraform
+
+  - name: CI_PROJECT_NAME
+    desc: Gitlab project name
+    tags:
+      - publish
+
+  - name: CI_COMMIT_REF_NAME
+    desc: Gitlab branch or tag being run
+    tags:
+      - publish
+
+  - name: CI_COMMIT_SHA
+    desc: Gitlab commit sha
+    tags:
+      - publish
+
+  - name: GIT_USERNAME
+    desc: Github username
+    tags:
+      - publish
+
+  - name: GIT_PASSWORD
+    desc: Github Personal Access Token
+    tags:
+      - publish
+
+  - name: GIT_PUBLISHING_WEBHOOK
+    desc: Slack webhook for notifications
+    tags:
+      - publish
+
 tags:
   - name: terraform
     desc: Required to run Terraform commands
+  - name: publish
+    desc: Github publishing envvars

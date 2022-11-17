@@ -28,3 +28,15 @@ services:
       - .:/work
       - ~/.aws:/root/.aws
     working_dir: /work
+
+  terraform-utils:
+    image: cmdlabs/terraform-utils:10.6.0
+    env_file: .env
+    entrypoint: ""
+    environment:
+      - AWS_SDK_LOAD_CONFIG=1
+    volumes:
+      - .:/work
+      - ~/.aws:/root/.aws
+      - ~/.ssh:/root/.ssh
+    working_dir: /work
