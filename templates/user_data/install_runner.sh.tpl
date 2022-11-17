@@ -4,31 +4,31 @@ YUM_CMD=$(which yum)
 APT_GET_CMD=$(which apt-get)
 
 ARCH="$(uname -m)"
-if [[ "${ARCH}" == "x86_64" ]]; then
+if [[ "$${ARCH}" == "x86_64" ]]; then
   ARCH="amd64"
 fi
 
-if [[ ! -z ${YUM_CMD} ]]; then
+if [[ ! -z $${YUM_CMD} ]]; then
   yum update -y
   yum install -y curl
   # The package for redhat don't seem to exist (see https://gitlab.com/gitlab-org/gitlab-runner/-/issues/25554), follow https://docs.gitlab.com/runner/install/linux-manually.html
   if [ -r '/etc/redhat-release' ]; then
     yum install -y python-pip docker git
-    curl -LJO "https://gitlab-runner-downloads.s3.amazonaws.com/latest/rpm/gitlab-runner_${ARCH}.rpm"
-    rpm -i "gitlab-runner_${ARCH}.rpm"
-    curl -LJO https://s3.amazonaws.com/amazoncloudwatch-agent/redhat/${ARCH}/latest/amazon-cloudwatch-agent.rpm
+    curl -LJO "https://gitlab-runner-downloads.s3.amazonaws.com/latest/rpm/gitlab-runner_$${ARCH}.rpm"
+    rpm -i "gitlab-runner_$${ARCH}.rpm"
+    curl -LJO https://s3.amazonaws.com/amazoncloudwatch-agent/redhat/$${ARCH}/latest/amazon-cloudwatch-agent.rpm
     rpm -i amazon-cloudwatch-agent.rpm
-    rm -f "gitlab-runner_${ARCH}.rpm" amazon-cloudwatch-agent.rpm
+    rm -f "gitlab-runner_$${ARCH}.rpm" amazon-cloudwatch-agent.rpm
   else
     curl -L https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.rpm.sh | sudo bash
     yum install -y gitlab-runner python-pip awslogs docker git
   fi
-elif [[ ! -z ${APT_GET_CMD} ]]; then
+elif [[ ! -z $${APT_GET_CMD} ]]; then
   apt-get update
   apt-get upgrade -y
   apt-get install -y curl
   curl -L https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.deb.sh | sudo bash
-  curl -LJO https://s3.amazonaws.com/amazoncloudwatch-agent/debian/${ARCH}/latest/amazon-cloudwatch-agent.deb
+  curl -LJO https://s3.amazonaws.com/amazoncloudwatch-agent/debian/$${ARCH}/latest/amazon-cloudwatch-agent.deb
   dpkg -i -E amazon-cloudwatch-agent.deb
   rm -f amazon-cloudwatch-agent.deb
   apt-get install -y gitlab-runner python3-pip python-is-python3 docker.io git
@@ -42,9 +42,9 @@ pip install boto3 backoff
 systemctl enable docker.service
 systemctl start docker.service
 
-INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
+INSTANCE_ID="$(curl http://169.254.169.254/latest/meta-data/local-ipv4)"
 
-registration_token=$(aws ssm get-parameters --names ${runner_registration_token_ssm_path} --with-decryption --query 'Parameters[0].Value' --output text --region ${region})
+registration_token="$(aws ssm get-parameters --names ${runner_registration_token_ssm_path} --with-decryption --query 'Parameters[0].Value' --output text --region ${region})"
 
 for i in ${num_runners}; do
   sudo gitlab-runner register \
@@ -96,14 +96,14 @@ cat > /etc/systemd/system/hookchecker.service << EOF
 ${hookchecker_service_content}
 EOF
 
-if [[ ! -z ${YUM_CMD} ]]; then
+if [[ ! -z $${YUM_CMD} ]]; then
   if [ -r '/etc/redhat-release' ]; then
     sudo systemctl enable amazon-cloudwatch-agent.service
     sudo service amazon-cloudwatch-agent start
   fi
   sudo service awslogsd start
   sudo systemctl enable awslogsd
-elif [[ ! -z ${APT_GET_CMD} ]]; then
+elif [[ ! -z $${APT_GET_CMD} ]]; then
   sudo systemctl enable amazon-cloudwatch-agent.service
   sudo service amazon-cloudwatch-agent start
 fi
