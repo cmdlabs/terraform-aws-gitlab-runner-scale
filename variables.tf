@@ -2,7 +2,7 @@ variable "asg" {
   description = "Resource attributes required by the auto scale group configuration"
   type = object({
     associate_public_ip_address  = optional(bool, false)
-    desired_capacity             = number
+    desired_capacity             = optional(number, 0)
     executor                     = optional(string, "docker")
     force_instance_deletion_time = optional(number, 600)
     image_id                     = optional(string, "")
