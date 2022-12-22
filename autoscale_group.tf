@@ -5,16 +5,42 @@ locals {
     "--executor 'shell' --description \"shell-runner $${INSTANCE_ID}\""
   )
 }
-resource "aws_launch_configuration" "runner" {
-  associate_public_ip_address = var.asg.associate_public_ip_address
-  iam_instance_profile        = aws_iam_instance_profile.runner.name
-  image_id                    = var.asg.image_id == "" ? data.aws_ami.amazonlinux2[0].id : var.asg.image_id
-  instance_type               = var.asg.instance_type
-  key_name                    = var.asg.ssh_access.key_name
-  name_prefix                 = "gitlab-runner-"
-  security_groups             = [aws_security_group.runner.id]
-  spot_price                  = var.asg.spot_price
-  user_data = templatefile("${path.module}/templates/user_data/install_runner.sh.tpl", {
+resource "aws_launch_template" "runner" {
+  block_device_mappings {
+    device_name = lookup(var.asg.root_block_device, "name", "/dev/xvda")
+    ebs {
+      delete_on_termination = lookup(var.asg.root_block_device, "delete_on_termination", true)
+      encrypted             = lookup(var.asg.root_block_device, "encrypted", true)
+      iops                  = lookup(var.asg.root_block_device, "iops", null)
+      throughput            = lookup(var.asg.root_block_device, "throughput", null)
+      volume_size           = lookup(var.asg.root_block_device, "volume_size", null)
+      volume_type           = lookup(var.asg.root_block_device, "volume_type", "gp3")
+    }
+  }
+  iam_instance_profile {
+    name = aws_iam_instance_profile.runner.name
+  }
+  image_id = var.asg.image_id == "" ? data.aws_ami.amazonlinux2[0].id : var.asg.image_id
+  # Dynamic due to https://github.com/hashicorp/terraform-provider-aws/issues/24009
+  dynamic "instance_market_options" {
+    for_each = can(var.asg.spot_price) ? [1] : []
+    content {
+      market_type = "spot"
+      spot_options {
+        max_price          = var.asg.spot_price
+        spot_instance_type = "one-time"
+      }
+    }
+  }
+  instance_type = var.asg.instance_type
+  key_name      = var.asg.ssh_access.key_name
+  name_prefix   = "gitlab-runner-"
+  network_interfaces {
+    associate_public_ip_address = var.asg.associate_public_ip_address
+    security_groups             = [aws_security_group.runner.id]
+  }
+  update_default_version = true
+  user_data = base64encode(templatefile("${path.module}/templates/user_data/install_runner.sh.tpl", {
     executor   = local.executor
     gitlab_url = var.gitlab.uri
     hookchecker_py_content = templatefile(
@@ -29,16 +55,7 @@ resource "aws_launch_configuration" "runner" {
     region                             = data.aws_region.current.name
     runner_registration_token_ssm_path = var.gitlab.runner_registration_token_ssm_path
     runner_job_tags                    = local.asg_tag_list
-  })
-
-  root_block_device {
-    encrypted             = lookup(var.asg.root_block_device, "encrypted", null)
-    delete_on_termination = lookup(var.asg.root_block_device, "delete_on_termination", null)
-    iops                  = lookup(var.asg.root_block_device, "iops", null)
-    throughput            = lookup(var.asg.root_block_device, "throughput", null)
-    volume_type           = lookup(var.asg.root_block_device, "volume_type", null)
-    volume_size           = lookup(var.asg.root_block_device, "volume_size", null)
-  }
+  }))
 
   lifecycle {
     create_before_destroy = true
@@ -48,10 +65,13 @@ resource "aws_launch_configuration" "runner" {
 resource "aws_autoscaling_group" "runner" {
   desired_capacity          = var.asg.desired_capacity != -1 ? var.asg.desired_capacity : null
   health_check_grace_period = 120
-  launch_configuration      = aws_launch_configuration.runner.name
-  min_size                  = var.asg.min_size
-  max_size                  = var.asg.max_size
-  name_prefix               = "gitlab-runner-"
+  launch_template {
+    id      = aws_launch_template.runner.id
+    version = "$Latest"
+  }
+  max_size    = var.asg.max_size
+  min_size    = var.asg.min_size
+  name_prefix = "gitlab-runner-"
   termination_policies = [
     "OldestInstance"
   ]
