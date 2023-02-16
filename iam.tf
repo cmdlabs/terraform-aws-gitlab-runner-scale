@@ -77,6 +77,12 @@ resource "aws_iam_role_policy_attachment" "ssm_managed_access" {
   role       = aws_iam_role.runner.name
 }
 
+resource "aws_iam_role_policy_attachment" "managed_policy_arns" {
+  for_each   = toset(var.asg.managed_policy_arns)
+  policy_arn = each.value
+  role       = aws_iam_role.runner.name
+}
+
 resource "aws_iam_instance_profile" "runner" {
   name_prefix = "gitlab-runner-instance-profile"
   role        = aws_iam_role.runner.name

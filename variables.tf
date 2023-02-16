@@ -8,6 +8,7 @@ variable "asg" {
     image_id                     = optional(string, "")
     instance_type                = string
     job_policy                   = optional(any, "")
+    managed_policy_arns          = optional(list(string), [])
     log_level                    = optional(string, "info")
     max_size                     = number
     min_size                     = optional(number, 0)
