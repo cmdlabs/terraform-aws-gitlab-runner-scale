@@ -17,12 +17,12 @@ The autoscaling group makes use of lifecycle hook to ensure that every time a ru
 scaling-in operation, it completes the assigned job before deregistering from GitLab and terminating. A timeout
 configuration is provided to ensure runners are not stuck in a loop waiting to terminate costing money.
 
-New runners take ~5-6 minutes to register with GitLab. This is due to:
+New runners take ~3-4 minutes to register with GitLab. This is due to:
 
-* Time for CloudWatch alarm to trigger (~30 seconds),
+* Time for CloudWatch alarm to trigger (~10 seconds),
 * Time for AutoScale to be triggered from alarm (~10 seconds),
 * Delay in instance launch (~1 minute),
-* Time to execute CloudInit to bootstrap instance with required tools and register the runner (~3-4 minutes). This can
+* Time to execute CloudInit to bootstrap instance with required tools and register the runner (~2-3 minutes). This can
 be sped up by providing a `asg.image_id` with the required tooling already bootstrap.
 
 The runner [executors](https://docs.gitlab.com/runner/executors/) can be either:
