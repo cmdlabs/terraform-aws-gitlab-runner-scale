@@ -36,7 +36,7 @@ resource "aws_cloudwatch_metric_alarm" "gitlab_pending_jobs" {
   insufficient_data_actions = []
   metric_name               = "NumberOfPendingJobs"
   namespace                 = local.metric_namespace
-  period                    = "60"
+  period                    = "10"
   statistic                 = "Average"
   threshold                 = "0"
 }
