@@ -84,9 +84,9 @@ def get_all_project_ids(token):
             if last_activity > hours_ago:
                 LOGGER.debug('Found project with last activity {}'.format(last_activity_str))
                 project_ids.extend([pid])
-        if 'Links' not in res.headers:
+        if 'Link' not in res.headers:
             break
-        link = res.headers['Links'].split('<')[1].split('>')[0]
+        link = res.headers['Link'].split('<')[1].split('>')[0]
     LOGGER.info("Found project ids: {}".format(project_ids))
     LOGGER.info("Number of projects processes: {}".format(total_numb_of_projects))
     return project_ids
