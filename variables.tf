@@ -41,6 +41,10 @@ variable "asg" {
     condition     = can(jsonencode(var.asg.job_policy))
     error_message = "The job policy must be valid JSON."
   }
+  validation {
+    condition     = var.asg.spot_price == null || can(regex("^$|^\\d+(\\.\\d+)?$", var.asg.spot_price))
+    error_message = "Valid values for var: asg.spot_price are ('null' (don't use spot pricing), '' (empty, use spot pricing but set no limit), or a numeric string value to set as a maximum spot price')."
+  }
 }
 
 variable "gitlab" {
