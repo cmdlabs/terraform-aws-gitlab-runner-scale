@@ -23,11 +23,11 @@ resource "aws_launch_template" "runner" {
   image_id = var.asg.image_id == "" ? data.aws_ami.amazonlinux2[0].id : var.asg.image_id
   # Dynamic due to https://github.com/hashicorp/terraform-provider-aws/issues/24009
   dynamic "instance_market_options" {
-    for_each = can(var.asg.spot_price) ? [1] : []
+    for_each = var.asg.spot_price != null ? [1] : []
     content {
       market_type = "spot"
       spot_options {
-        max_price          = var.asg.spot_price
+        max_price          = var.asg.spot_price == "" ? null : var.asg.spot_price
         spot_instance_type = "one-time"
       }
     }
