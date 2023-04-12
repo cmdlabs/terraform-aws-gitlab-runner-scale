@@ -95,6 +95,10 @@ variable "lambda" {
     condition     = can(regex("^cron|^rate|^off$", var.lambda.rate))
     error_message = "Valid values for var: lambda.rate are ('cron(...)', 'rate(...) or off')."
   }
+  validation {
+    condition     = length(var.lambda.cors) == 0 || length(var.lambda.cors.allow_origins) > 0
+    error_message = "When you have values for lambda.cors you must specifiy lambda.cors.allow_origins."
+  }
 }
 
 variable "provisioner" {
