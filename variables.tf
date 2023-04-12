@@ -51,6 +51,7 @@ variable "gitlab" {
   description = "Resource attributes required by the lambda and EC2 to connect to gitlab"
   type = object({
     activity_since_hours               = optional(number, 4)
+    allowed_ip_range                   = optional(string, "")
     api_token_ssm_path                 = string
     log_level                          = optional(string, "info")
     narrow_to_membership               = optional(string, "true")
