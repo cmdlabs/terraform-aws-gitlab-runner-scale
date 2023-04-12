@@ -48,6 +48,7 @@ resource "aws_lambda_function" "push_gitlab_pending_jobs_metric" {
   environment {
     variables = {
       ACTIVITY_SINCE       = var.gitlab.activity_since_hours
+      ALLOWED_IP_RANGE     = var.gitlab.allowed_ip_range
       ASG_NAME             = aws_autoscaling_group.runner.name
       GITLAB_URI           = var.gitlab.uri
       LOG_LEVEL            = var.gitlab.log_level

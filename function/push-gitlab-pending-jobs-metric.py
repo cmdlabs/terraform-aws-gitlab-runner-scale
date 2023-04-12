@@ -5,11 +5,13 @@ import time
 import boto3
 import backoff
 import os
+import ipaddress
 from datetime import datetime, timedelta
 from botocore.exceptions import ClientError
 
 MAX_RETRIES = 8
 ACTIVITY_SINCE = os.getenv('ACTIVITY_SINCE')
+ALLOWED_IP_RANGE = os.getenv('ALLOWED_IP_RANGE', [])
 TOKEN_SSM_PATH = os.getenv('TOKEN_SSM_PATH')
 GITLAB_URI = os.getenv('GITLAB_URI')
 ASG_NAME = os.getenv('ASG_NAME')
@@ -62,6 +64,23 @@ def describe_auto_scaling_groups(asg_client, **kwargs):
                       max_tries=MAX_RETRIES)
 def get_request(*args, **kwargs):
     return requests.get(*args, **kwargs)
+
+
+def check_ip(SOURCE_IP_ADDRESS, ALLOWED_IP_RANGE):
+    for cidr in ALLOWED_IP_RANGE:
+        try:
+            ipaddress.ip_network(cidr.strip(), False)
+        except ValueError:
+            LOGGER.error('Invalid input CIDR range: %s.' % (cidr))
+            return False
+
+    cidr_networks = [ipaddress.ip_network(cidr, False) for cidr in ALLOWED_IP_RANGE]
+    ip_address = ipaddress.ip_address(SOURCE_IP_ADDRESS)
+    for network in cidr_networks:
+        if ip_address in network:
+            return True
+    LOGGER.error('%s was blocked as not in valid CIDR  allow range: %s.' % (SOURCE_IP_ADDRESS, ALLOWED_IP_RANGE))
+    return False
 
 
 def get_all_project_ids(token):
@@ -161,6 +180,14 @@ def get_asg_healthy_instances_in_service(asg_client):
 
 
 def handler(event, context):
+    # Check if request originated from http (url), if it did and we have IPs to check verify the source is allowed
+    if 'requestContext' in event and 'http' in event['requestContext'] and 'sourceIp' in event['requestContext']['http'] and ALLOWED_IP_RANGE:
+        if not check_ip(event["requestContext"]["http"]["sourceIp"], ALLOWED_IP_RANGE.split(',')):
+            return {
+                "statusCode": 403,
+                "body": '',
+            }
+
     ssm_client = boto3.client('ssm', region_name=REGION)
     result = get_parameter(ssm_client, Name=TOKEN_SSM_PATH, WithDecryption=True)
     token = result['Parameter']['Value']
