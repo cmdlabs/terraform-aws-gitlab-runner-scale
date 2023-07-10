@@ -52,6 +52,6 @@ EOF
   lambda = {
     memory_size = 128
     rate        = "rate(1 minute)"
-    runtime     = "python3.8"
+    runtime     = "python3.9"
   }
 }
