@@ -68,18 +68,43 @@ termination.
 
 ## GitLab Tokens
 
+Some of the details regarding tokens have been taken from
+[How to automate the creation of GitLab Runners](https://about.gitlab.com/blog/2023/07/06/how-to-automate-creation-of-runners/)
+and [Manage runners](https://docs.gitlab.com/ee/ci/runners/runners_scope.html). Changes have been implemented (see
+[Next GitLab Runner Token Architecture](https://docs.gitlab.com/ee/architecture/blueprints/runner_tokens/#next-gitlab-runner-token-architecture))
+which impact on the mechanism in which runners are created.
+
 In order for both the runner (EC2) to register and the lambda to check the queue we need to use tokens from GitLab.
 
 `gitlab.api_token_ssm_path` and `gitlab.runner_registration_token_ssm_path` are both manually created paths in
 [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.htm).
 Use the default KMS key or ensure the lambda and EC2 have access to decode the parameter.
 
-* `api_token_ssm_path`: Is a _Project Access Token_ with _read_api_ as _Guest_ permissions created in the repository
-the runner checks the job queue. Ensure sufficient expiry is provided for the token. **NOTE:** To use the _Guest_ role
-here the _Public pipelines_ in _Settings_ -> _CI/CD_ -> _General pipelines_ must be ticked. Otherwise _Reporter_ role
-can be used.
-* `runner_registration_token_ssm_path`: Is found by navigating to _Settings_ -> _CI/CD_ -> _Runners_ ->
-_registration token_ of the repository the runner will connect to.
+* `api_token_ssm_path`: Used by the lambda function is a _Project Access Token_ with _read_api_ as _Guest_ permissions
+created in the repository the runner checks the job queue. Ensure sufficient expiry is provided for the token. **NOTE:**
+To use the _Guest_ role here the _Public pipelines_ in _Settings_ -> _CI/CD_ -> _General pipelines_ must be ticked.
+Otherwise _Reporter_ role can be used.
+
+For `runner_registration_token_ssm_path` there are three options and are all used by the runner to register with gitlab:
+
+1. `gitlab.runner_registration_type = authentication-token` (Future default behavior GitLab 17.0+): See
+[Create a project runner with an authentication token](https://docs.gitlab.com/ee/ci/runners/runners_scope.html#create-a-project-runner-with-an-authentication-token)
+to create the runner group and use the `authentication token` displayed on the screen. Ensure the `Tags` match
+`gitlab.runner_job_tags` for the runners to pick up the jobs correctly. **NOTE:** This was added in GitLab `15.10`.
+1. `gitlab.runner_registration_type = authentication-token-group-creation`: Is a _Project Access Token_ with _api_ as
+_Owner_ permissions created in the repository the runner checks the job queue. Ensure sufficient expiry is provided for
+the token. For more details see [How to automate the creation of GitLab Runners](https://about.gitlab.com/blog/2023/07/06/how-to-automate-creation-of-runners/). You will also need to define the `gitlab.project_id` to ensure the runner can
+create the group in the correct project.
+**NOTE:** This was added in GitLab `15.10`.
+1. `gitlab.runner_registration_type = legacy` (Current default behavior): Is found by navigating to _Settings_ ->
+_CI/CD_ -> _Runners_ -> _registration token_ of the repository the runner will connect to. For more details see
+[Register a runner with a registration token (deprecated)](https://docs.gitlab.com/runner/register/#register-a-runner-with-a-registration-token-deprecated).
+**NOTE:** This will be removed in GitLab `17.0`.
+
+**NOTE:** There is currently an issue with the runner groups not being cleaned up as each new runner creates a new
+group when using `gitlab.runner_registration_type = authentication-token-group-creation`. As an alternative strategy use
+`gitlab.runner_registration_type = authentication-token` and manually create the project runner group before deploying
+the runners.
 
 Manually upload these into AWS with a given _Name_ (path) within Parameter Store and update the values of
 `api_token_ssm_path` and `runner_registration_token_ssm_path` respectively.
@@ -423,7 +448,7 @@ No modules.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_asg"></a> [asg](#input\_asg) | Resource attributes required by the auto scale group configuration | <pre>object({<br>    associate_public_ip_address  = optional(bool, false)<br>    desired_capacity             = optional(number, 0)<br>    executor                     = optional(string, "docker")<br>    force_instance_deletion_time = optional(number, 600)<br>    image_id                     = optional(string, "")<br>    instance_type                = string<br>    job_policy                   = optional(any, "")<br>    managed_policy_arns          = optional(list(string), [])<br>    log_level                    = optional(string, "info")<br>    max_size                     = number<br>    min_size                     = optional(number, 0)<br>    root_block_device            = optional(any, {})<br>    scaling_warmup               = optional(number, 240)<br>    spot_price                   = optional(string, null)<br>    ssh_access = optional(object({<br>      source_cidr = optional(string, "")<br>      key_name    = optional(string, null)<br>    }), {})<br>    subnet_ids = list(string)<br>  })</pre> | n/a | yes |
-| <a name="input_gitlab"></a> [gitlab](#input\_gitlab) | Resource attributes required by the lambda and EC2 to connect to gitlab | <pre>object({<br>    activity_since_hours               = optional(number, 4)<br>    allowed_ip_range                   = optional(string, "")<br>    api_token_ssm_path                 = string<br>    log_level                          = optional(string, "info")<br>    narrow_to_membership               = optional(string, "true")<br>    runner_agents_per_instance         = optional(number, 1)<br>    runner_job_tags                    = optional(string, "")<br>    runner_registration_token_ssm_path = string<br>    runner_idletime                    = optional(string, "30")<br>    uri                                = string<br>  })</pre> | n/a | yes |
+| <a name="input_gitlab"></a> [gitlab](#input\_gitlab) | Resource attributes required by the lambda and EC2 to connect to gitlab | <pre>object({<br>    activity_since_hours               = optional(number, 4)<br>    allowed_ip_range                   = optional(string, "")<br>    api_token_ssm_path                 = string<br>    log_level                          = optional(string, "info")<br>    narrow_to_membership               = optional(string, "true")<br>    project_id                         = string<br>    runner_agents_per_instance         = optional(number, 1)<br>    runner_job_tags                    = optional(string, "")<br>    runner_registration_token_ssm_path = string<br>    runner_registration_type           = optional(string, "legacy")<br>    runner_idletime                    = optional(string, "30")<br>    uri                                = string<br>  })</pre> | n/a | yes |
 | <a name="input_lambda"></a> [lambda](#input\_lambda) | Resource attributes for the pending job lambda function. rate also has the special value of 'off' to turn off polling. This is not recomended and is better to use 'rate(1 hour)' to ensure instances are cleaned up | <pre>object({<br>    allow_function_url = optional(bool, false)<br>    cors = optional(object({<br>      allow_credentials = optional(bool, false)<br>      allow_headers     = optional(list(string), [])<br>      allow_methods     = optional(list(string), [])<br>      allow_origins     = optional(list(string), [])<br>      expose_headers    = optional(list(string), [])<br>      max_age           = optional(number, 0)<br>    }), {})<br>    memory_size = optional(number, 128)<br>    rate        = optional(string, "rate(1 minute)")<br>    runtime     = optional(string, "python3.8")<br>  })</pre> | n/a | yes |
 | <a name="input_provisioner"></a> [provisioner](#input\_provisioner) | Provisioner to use to create the lambda python dependencies; 'container' or 'local' | `string` | `"local"` | no |
 

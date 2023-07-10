@@ -55,9 +55,11 @@ variable "gitlab" {
     api_token_ssm_path                 = string
     log_level                          = optional(string, "info")
     narrow_to_membership               = optional(string, "true")
+    project_id                         = optional(string, "")
     runner_agents_per_instance         = optional(number, 1)
     runner_job_tags                    = optional(string, "")
     runner_registration_token_ssm_path = string
+    runner_registration_type           = optional(string, "legacy")
     runner_idletime                    = optional(string, "30")
     uri                                = string
   })
@@ -67,12 +69,20 @@ variable "gitlab" {
     error_message = "Activity since hours must be greater than 1 and a whole number."
   }
   validation {
+    condition     = length(var.gitlab.project_id) == 0 || can(regex("^authentication-token-group-creation$", var.gitlab.runner_registration_type))
+    error_message = "You must have a value for gitlab.project_id if gitlab.runner_registration_type = 'authentication-token-group-creation'."
+  }
+  validation {
     condition     = var.gitlab.runner_agents_per_instance >= 1 && floor(var.gitlab.runner_agents_per_instance) == var.gitlab.runner_agents_per_instance
     error_message = "Runner agens per instance must be greater than 1 and a whole number."
   }
   validation {
     condition     = can(tonumber(var.gitlab.runner_idletime)) && tonumber(var.gitlab.runner_idletime) >= 1 && floor(tonumber(var.gitlab.runner_idletime)) == tonumber(var.gitlab.runner_idletime)
     error_message = "Runner idle time must be greater than 1 and a whole number string."
+  }
+  validation {
+    condition     = can(regex("^legacy$|^authentication-token$|^authentication-token-group-creation$", var.gitlab.runner_registration_type))
+    error_message = "Valid values for var: gitlab.runner_registration_type are ('legacy' - using a guest read api registration token, 'authentication token' - using the runner project token or 'authentication-token-group-creation' - using a project owner token). See https://docs.gitlab.com/runner/register/ for more information"
   }
 }
 
