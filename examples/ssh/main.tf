@@ -41,7 +41,7 @@ module "gitlab-runner" {
 
   lambda = {
     memory_size = 128
-    rate        = "rate(5 minute)"
+    rate        = "rate(5 minutes)"
     runtime     = "python3.8"
   }
 }
