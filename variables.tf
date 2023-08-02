@@ -108,6 +108,10 @@ variable "lambda" {
     condition     = can(regex("^cron|^rate|^off$", var.lambda.rate))
     error_message = "Valid values for var: lambda.rate are ('cron(...)', 'rate(...) or off')."
   }
+  validation {
+    condition     = can(regex("^cron|^off$", var.lambda.rate)) || (can(regex("^rate", var.lambda.rate)) && can(regex("1 minute\\)$|[^1] minutes\\)$|1 hour\\)$|[^1] hours\\)$|1 day\\)$|[^1] days\\)$", var.lambda.rate)))
+    error_message = "Valid values for var: lambda.rate are ('rate(1 minute)', 'rate(x minutes)' 'rate(1 hour)', 'rate(x hours)' 'rate(1 day)' or 'rate(x days)'). ${var.lambda.rate}"
+  }
 }
 
 variable "provisioner" {
