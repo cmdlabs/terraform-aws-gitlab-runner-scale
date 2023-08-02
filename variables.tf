@@ -94,10 +94,12 @@ variable "lambda" {
       allow_credentials = optional(bool, false)
       allow_headers     = optional(list(string), [])
       allow_methods     = optional(list(string), [])
-      allow_origins     = optional(list(string), [])
+      allow_origins     = list(string),
       expose_headers    = optional(list(string), [])
       max_age           = optional(number, 0)
-    }), {})
+      }), {
+      allow_origins = []
+    })
     memory_size = optional(number, 128)
     rate        = optional(string, "rate(1 minute)")
     runtime     = optional(string, "python3.11")
@@ -105,10 +107,6 @@ variable "lambda" {
   validation {
     condition     = can(regex("^cron|^rate|^off$", var.lambda.rate))
     error_message = "Valid values for var: lambda.rate are ('cron(...)', 'rate(...) or off')."
-  }
-  validation {
-    condition     = length(var.lambda.cors) == 0 || length(var.lambda.cors.allow_origins) > 0
-    error_message = "When you have values for lambda.cors you must specifiy lambda.cors.allow_origins."
   }
 }
 
