@@ -41,20 +41,23 @@ resource "aws_launch_template" "runner" {
   }
   update_default_version = true
   user_data = base64encode(templatefile("${path.module}/templates/user_data/install_runner.sh.tpl", {
-    executor   = local.executor
-    gitlab_url = var.gitlab.uri
+    executor      = local.executor
+    executor_type = var.asg.executor
+    gitlab_url    = var.gitlab.uri
     hookchecker_py_content = templatefile(
       "${path.module}/templates/hookchecker/hookchecker.py",
       {
         LOG_LEVEL = var.asg.log_level,
       },
     )
-    hookchecker_service_content        = file("${path.module}/templates/hookchecker/hookchecker.service")
-    log_group                          = aws_cloudwatch_log_group.runner.name
-    num_runners                        = var.gitlab.runner_agents_per_instance
-    region                             = data.aws_region.current.name
-    runner_registration_token_ssm_path = var.gitlab.runner_registration_token_ssm_path
-    runner_job_tags                    = local.asg_tag_list
+    hookchecker_service_content = file("${path.module}/templates/hookchecker/hookchecker.service")
+    log_group                   = aws_cloudwatch_log_group.runner.name
+    num_runners                 = var.gitlab.runner_agents_per_instance
+    project_id                  = var.gitlab.project_id
+    region                      = data.aws_region.current.name
+    runner_registration_type    = var.gitlab.runner_registration_type
+    runner_job_tags             = local.asg_tag_list
+    runner_token_ssm_path       = var.gitlab.runner_registration_token_ssm_path
   }))
 
   lifecycle {

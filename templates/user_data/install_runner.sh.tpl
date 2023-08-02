@@ -10,7 +10,7 @@ fi
 
 if [[ ! -z $${YUM_CMD} ]]; then
   yum update -y
-  yum install -y curl
+  yum install -y curl jq
   # The package for redhat don't seem to exist (see https://gitlab.com/gitlab-org/gitlab-runner/-/issues/25554), follow https://docs.gitlab.com/runner/install/linux-manually.html
   if [ -r '/etc/redhat-release' ]; then
     yum install -y python-pip docker git
@@ -26,7 +26,7 @@ if [[ ! -z $${YUM_CMD} ]]; then
 elif [[ ! -z $${APT_GET_CMD} ]]; then
   apt-get update
   apt-get upgrade -y
-  apt-get install -y curl
+  apt-get install -y curl jq
   curl -L https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.deb.sh | sudo bash
   curl -LJO https://s3.amazonaws.com/amazoncloudwatch-agent/debian/$${ARCH}/latest/amazon-cloudwatch-agent.deb
   dpkg -i -E amazon-cloudwatch-agent.deb
@@ -44,13 +44,14 @@ systemctl start docker.service
 
 INSTANCE_ID="$(curl http://169.254.169.254/latest/meta-data/local-ipv4)"
 
-registration_token="$(aws ssm get-parameters --names ${runner_registration_token_ssm_path} --with-decryption --query 'Parameters[0].Value' --output text --region ${region})"
+token="$(aws ssm get-parameters --names ${runner_token_ssm_path} --with-decryption --query 'Parameters[0].Value' --output text --region ${region})"
 
+%{ if runner_registration_type == "legacy" ~}
 for i in ${num_runners}; do
   sudo gitlab-runner register \
     --non-interactive \
     --url "${gitlab_url}" \
-    --registration-token "$${registration_token}" \
+    --registration-token "$${token}" \
     ${executor} \
     --maintenance-note "Free-form maintainer notes about this runner" \
     --tag-list "${runner_job_tags}" \
@@ -58,6 +59,33 @@ for i in ${num_runners}; do
     --locked="false" \
     --access-level="not_protected"
 done
+%{ else ~}
+# Inspired from:
+# https://docs.gitlab.com/runner/register/#register-a-runner-created-in-the-ui-with-an-authentication-token
+# https://about.gitlab.com/blog/2023/07/06/how-to-automate-creation-of-runners/
+
+%{ if runner_registration_type == "authentication-token-group-creation" ~}
+token=$( curl -sX POST "${gitlab_url}/api/v4/user/runners" \
+    --data runner_type=project_type \
+    --data "project_id=${project_id}" \
+    --data "tag_list=${runner_job_tags}" \
+    --header "PRIVATE-TOKEN: $${token}" | jq -r '.token' )
+
+%{ endif ~}
+for i in ${num_runners}; do
+  sudo gitlab-runner register \
+    --non-interactive \
+    --url "${gitlab_url}" \
+    --token "$${token}" \
+    ${executor}
+done
+%{ endif ~}
+
+%{ if executor_type == "shell" ~}
+# Ensure the gitlab runner has sudo permissions if needed for the shell runner.
+# Docker runner doesn't need as commands are run inside docker containers
+echo "gitlab-runner ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+%{ endif ~}
 
 mkdir -p /etc/awslogs
 cat > /etc/awslogs/awscli.conf << EOF

@@ -86,7 +86,7 @@ def get_runners():
 
 def deregister_runners():
     LOGGER.info('Start deregistring the runner')
-    unregister_command_pattern = 'gitlab-runner unregister --url {url} --token {token}'
+    unregister_command_pattern = 'gitlab-runner unregister --url {url} --token {token} --all-runners'
     runners = get_runners()
     for runner in runners:
         unregister_command = unregister_command_pattern.format(url=runner['url'], token=runner['token'])

@@ -1,7 +1,7 @@
 locals {
   provisioner_command = {
     container = "docker run --rm -v ${abspath(path.root)}/function:/root/ ${replace(var.lambda.runtime, "python", "python:")} pip3 install --no-compile -r /root/requirements.txt -t /root"
-    local     = "pip3 install --no-compile -r ${path.module}/function/requirements.txt -t ${path.module}/function/"
+    local     = "pip3 install --no-compile -r ${path.module}/function/requirements.txt --upgrade --target ${path.module}/function/"
   }
 }
 
