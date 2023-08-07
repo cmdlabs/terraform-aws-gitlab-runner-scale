@@ -69,7 +69,7 @@ variable "gitlab" {
     error_message = "Activity since hours must be greater than 1 and a whole number."
   }
   validation {
-    condition     = length(var.gitlab.project_id) == 0 || can(regex("^authentication-token-group-creation$", var.gitlab.runner_registration_type))
+    condition     = (can(regex("^authentication-token-group-creation$", var.gitlab.runner_registration_type)) && length(var.gitlab.project_id) != 0) || (!can(regex("^authentication-token-group-creation$", var.gitlab.runner_registration_type)) && length(var.gitlab.project_id) >= 0)
     error_message = "You must have a value for gitlab.project_id if gitlab.runner_registration_type = 'authentication-token-group-creation'."
   }
   validation {

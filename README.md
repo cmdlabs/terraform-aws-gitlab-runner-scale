@@ -380,7 +380,7 @@ The [.terraform-docs.yml](./.terraform-docs.yml) contains the required settings.
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.3.0 |
 | <a name="requirement_archive"></a> [archive](#requirement\_archive) | 2.4.0 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | ~> 5.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | ~> 5.11 |
 | <a name="requirement_local"></a> [local](#requirement\_local) | 2.4.0 |
 | <a name="requirement_null"></a> [null](#requirement\_null) | 3.2.1 |
 | <a name="requirement_random"></a> [random](#requirement\_random) | 3.5.1 |
@@ -390,7 +390,7 @@ The [.terraform-docs.yml](./.terraform-docs.yml) contains the required settings.
 | Name | Version |
 |------|---------|
 | <a name="provider_archive"></a> [archive](#provider\_archive) | 2.4.0 |
-| <a name="provider_aws"></a> [aws](#provider\_aws) | ~> 5.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | ~> 5.11 |
 | <a name="provider_null"></a> [null](#provider\_null) | 3.2.1 |
 | <a name="provider_random"></a> [random](#provider\_random) | 3.5.1 |
 
