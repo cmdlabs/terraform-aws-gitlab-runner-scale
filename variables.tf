@@ -61,6 +61,7 @@ variable "gitlab" {
     runner_registration_token_ssm_path = string
     runner_registration_type           = optional(string, "legacy")
     runner_idletime                    = optional(string, "30")
+    runner_version                     = optional(string, "latest")
     uri                                = string
   })
 
