@@ -322,7 +322,7 @@ EOF
   lambda = {
     memory_size = 128
     rate        = "rate(1 minute)"
-    runtime     = "python3.9"
+    runtime     = "python3.11"
   }
 }
 ```
@@ -379,20 +379,20 @@ The [.terraform-docs.yml](./.terraform-docs.yml) contains the required settings.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.3.0 |
-| <a name="requirement_archive"></a> [archive](#requirement\_archive) | 2.2.0 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | ~> 4.0 |
-| <a name="requirement_local"></a> [local](#requirement\_local) | 2.2.3 |
-| <a name="requirement_null"></a> [null](#requirement\_null) | 3.2.0 |
-| <a name="requirement_random"></a> [random](#requirement\_random) | 3.4.3 |
+| <a name="requirement_archive"></a> [archive](#requirement\_archive) | 2.4.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | ~> 5.0 |
+| <a name="requirement_local"></a> [local](#requirement\_local) | 2.4.0 |
+| <a name="requirement_null"></a> [null](#requirement\_null) | 3.2.1 |
+| <a name="requirement_random"></a> [random](#requirement\_random) | 3.5.1 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_archive"></a> [archive](#provider\_archive) | 2.2.0 |
-| <a name="provider_aws"></a> [aws](#provider\_aws) | ~> 4.0 |
-| <a name="provider_null"></a> [null](#provider\_null) | 3.2.0 |
-| <a name="provider_random"></a> [random](#provider\_random) | 3.4.3 |
+| <a name="provider_archive"></a> [archive](#provider\_archive) | 2.4.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | ~> 5.0 |
+| <a name="provider_null"></a> [null](#provider\_null) | 3.2.1 |
+| <a name="provider_random"></a> [random](#provider\_random) | 3.5.1 |
 
 ## Modules
 
@@ -431,9 +431,9 @@ No modules.
 | [aws_security_group.runner](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
 | [aws_security_group_rule.egress_all](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group_rule) | resource |
 | [aws_security_group_rule.ingress_ssh](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group_rule) | resource |
-| [null_resource.build](https://registry.terraform.io/providers/hashicorp/null/3.2.0/docs/resources/resource) | resource |
-| [random_string.rule_suffix](https://registry.terraform.io/providers/hashicorp/random/3.4.3/docs/resources/string) | resource |
-| [archive_file.lambda_payload](https://registry.terraform.io/providers/hashicorp/archive/2.2.0/docs/data-sources/file) | data source |
+| [null_resource.build](https://registry.terraform.io/providers/hashicorp/null/3.2.1/docs/resources/resource) | resource |
+| [random_string.rule_suffix](https://registry.terraform.io/providers/hashicorp/random/3.5.1/docs/resources/string) | resource |
+| [archive_file.lambda_payload](https://registry.terraform.io/providers/hashicorp/archive/2.4.0/docs/data-sources/file) | data source |
 | [aws_ami.amazonlinux2](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ami) | data source |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 | [aws_iam_policy_document.lambda_assume_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
@@ -449,7 +449,7 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_asg"></a> [asg](#input\_asg) | Resource attributes required by the auto scale group configuration | <pre>object({<br>    associate_public_ip_address  = optional(bool, false)<br>    desired_capacity             = optional(number, 0)<br>    executor                     = optional(string, "docker")<br>    force_instance_deletion_time = optional(number, 600)<br>    image_id                     = optional(string, "")<br>    instance_type                = string<br>    job_policy                   = optional(any, "")<br>    managed_policy_arns          = optional(list(string), [])<br>    log_level                    = optional(string, "info")<br>    max_size                     = number<br>    min_size                     = optional(number, 0)<br>    root_block_device            = optional(any, {})<br>    scaling_warmup               = optional(number, 240)<br>    spot_price                   = optional(string, null)<br>    ssh_access = optional(object({<br>      source_cidr = optional(string, "")<br>      key_name    = optional(string, null)<br>    }), {})<br>    subnet_ids = list(string)<br>  })</pre> | n/a | yes |
 | <a name="input_gitlab"></a> [gitlab](#input\_gitlab) | Resource attributes required by the lambda and EC2 to connect to gitlab | <pre>object({<br>    activity_since_hours               = optional(number, 4)<br>    allowed_ip_range                   = optional(string, "")<br>    api_token_ssm_path                 = string<br>    log_level                          = optional(string, "info")<br>    narrow_to_membership               = optional(string, "true")<br>    project_id                         = optional(string, "")<br>    runner_agents_per_instance         = optional(number, 1)<br>    runner_job_tags                    = optional(string, "")<br>    runner_registration_token_ssm_path = string<br>    runner_registration_type           = optional(string, "legacy")<br>    runner_idletime                    = optional(string, "30")<br>    uri                                = string<br>  })</pre> | n/a | yes |
-| <a name="input_lambda"></a> [lambda](#input\_lambda) | Resource attributes for the pending job lambda function. rate also has the special value of 'off' to turn off polling. This is not recomended and is better to use 'rate(1 hour)' to ensure instances are cleaned up | <pre>object({<br>    allow_function_url = optional(bool, false)<br>    cors = optional(object({<br>      allow_credentials = optional(bool, false)<br>      allow_headers     = optional(list(string), [])<br>      allow_methods     = optional(list(string), [])<br>      allow_origins     = optional(list(string), [])<br>      expose_headers    = optional(list(string), [])<br>      max_age           = optional(number, 0)<br>    }), {})<br>    memory_size = optional(number, 128)<br>    rate        = optional(string, "rate(1 minute)")<br>    runtime     = optional(string, "python3.9")<br>  })</pre> | n/a | yes |
+| <a name="input_lambda"></a> [lambda](#input\_lambda) | Resource attributes for the pending job lambda function. rate also has the special value of 'off' to turn off polling. This is not recomended and is better to use 'rate(1 hour)' to ensure instances are cleaned up | <pre>object({<br>    allow_function_url = optional(bool, false)<br>    cors = optional(object({<br>      allow_credentials = optional(bool, false)<br>      allow_headers     = optional(list(string), [])<br>      allow_methods     = optional(list(string), [])<br>      allow_origins     = list(string),<br>      expose_headers    = optional(list(string), [])<br>      max_age           = optional(number, 0)<br>      }), {<br>      allow_origins = []<br>    })<br>    memory_size = optional(number, 128)<br>    rate        = optional(string, "rate(1 minute)")<br>    runtime     = optional(string, "python3.11")<br>  })</pre> | n/a | yes |
 | <a name="input_provisioner"></a> [provisioner](#input\_provisioner) | Provisioner to use to create the lambda python dependencies; 'container' or 'local' | `string` | `"local"` | no |
 
 ## Outputs

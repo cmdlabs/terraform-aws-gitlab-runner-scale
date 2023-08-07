@@ -5,6 +5,7 @@ module "gitlab-runner" {
     associate_public_ip_address = true
     instance_type               = "t3.large"
     job_policy                  = ""
+    desired_capacity            = 1
     max_size                    = 5
     min_size                    = 1
     root_block_device           = {}
@@ -28,7 +29,7 @@ module "gitlab-runner" {
   lambda = {
     memory_size = 128
     rate        = "rate(5 minutes)"
-    runtime     = "python3.9"
+    runtime     = "python3.11"
   }
 
   provisioner = "container"
