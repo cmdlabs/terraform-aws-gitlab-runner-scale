@@ -8,20 +8,28 @@ if [[ "$${ARCH}" == "x86_64" ]]; then
   ARCH="amd64"
 fi
 
+if [[ "${runner_version}" == "latest" || -z "${runner_version}" ]]; then
+    runner_version=""
+    runner_version_path="latest"
+else
+    runner_version="-${runner_version}"
+    runner_version_path="v${runner_version}"
+fi
+
 if [[ ! -z $${YUM_CMD} ]]; then
   yum update -y
   yum install -y curl jq
   # The package for redhat don't seem to exist (see https://gitlab.com/gitlab-org/gitlab-runner/-/issues/25554), follow https://docs.gitlab.com/runner/install/linux-manually.html
   if [ -r '/etc/redhat-release' ]; then
     yum install -y python-pip docker git
-    curl -LJO "https://gitlab-runner-downloads.s3.amazonaws.com/latest/rpm/gitlab-runner_$${ARCH}.rpm"
+    curl -LJO "https://gitlab-runner-downloads.s3.amazonaws.com/$${runner_version_path}/rpm/gitlab-runner_$${ARCH}.rpm"
     rpm -i "gitlab-runner_$${ARCH}.rpm"
     curl -LJO https://s3.amazonaws.com/amazoncloudwatch-agent/redhat/$${ARCH}/latest/amazon-cloudwatch-agent.rpm
     rpm -i amazon-cloudwatch-agent.rpm
     rm -f "gitlab-runner_$${ARCH}.rpm" amazon-cloudwatch-agent.rpm
   else
     curl -L https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.rpm.sh | sudo bash
-    yum install -y gitlab-runner python-pip awslogs docker git
+    yum install -y gitlab-runner$${runner_version} python-pip awslogs docker git
   fi
 elif [[ ! -z $${APT_GET_CMD} ]]; then
   apt-get update
@@ -31,7 +39,7 @@ elif [[ ! -z $${APT_GET_CMD} ]]; then
   curl -LJO https://s3.amazonaws.com/amazoncloudwatch-agent/debian/$${ARCH}/latest/amazon-cloudwatch-agent.deb
   dpkg -i -E amazon-cloudwatch-agent.deb
   rm -f amazon-cloudwatch-agent.deb
-  apt-get install -y gitlab-runner python3-pip python-is-python3 docker.io git
+  apt-get install -y gitlab-runner$${runner_version} python3-pip python-is-python3 docker.io git
 else
   echo "OS not supported $(cat /etc/*release | grep '^ID=')"
   exit 1;

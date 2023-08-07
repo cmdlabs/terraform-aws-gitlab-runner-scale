@@ -58,6 +58,7 @@ resource "aws_launch_template" "runner" {
     runner_registration_type    = var.gitlab.runner_registration_type
     runner_job_tags             = local.asg_tag_list
     runner_token_ssm_path       = var.gitlab.runner_registration_token_ssm_path
+    runner_version              = var.gitlab.runner_version
   }))
 
   lifecycle {
