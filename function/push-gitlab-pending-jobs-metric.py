@@ -100,8 +100,8 @@ def get_all_project_ids(token):
             pid = project['id']
             last_activity_str = project['last_activity_at']
             last_activity = datetime.strptime(last_activity_str, '%Y-%m-%dT%H:%M:%S.%fZ')
-            if last_activity > hours_ago:
-                LOGGER.debug('Found project with last activity {}'.format(last_activity_str))
+            if (last_activity > hours_ago) or (int(ACTIVITY_SINCE) <= 0):
+                LOGGER.debug('Found project {} with last activity {}'.format(pid, last_activity_str))
                 project_ids.extend([pid])
         if 'Link' not in res.headers:
             break
