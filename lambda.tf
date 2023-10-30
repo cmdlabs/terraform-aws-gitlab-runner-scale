@@ -43,7 +43,7 @@ resource "aws_lambda_function" "push_gitlab_pending_jobs_metric" {
   role                           = aws_iam_role.lambda.arn
   runtime                        = var.lambda.runtime
   source_code_hash               = data.archive_file.lambda_payload.output_base64sha256
-  timeout                        = 10
+  timeout                        = var.lambda.timeout
 
   environment {
     variables = {

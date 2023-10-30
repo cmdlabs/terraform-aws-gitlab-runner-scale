@@ -104,6 +104,7 @@ variable "lambda" {
     memory_size = optional(number, 128)
     rate        = optional(string, "rate(1 minute)")
     runtime     = optional(string, "python3.11")
+    timeout     = optional(number, 10)
   })
   validation {
     condition     = can(regex("^cron|^rate|^off$", var.lambda.rate))
