@@ -66,8 +66,8 @@ variable "gitlab" {
   })
 
   validation {
-    condition     = var.gitlab.activity_since_hours >= 1 && floor(var.gitlab.activity_since_hours) == var.gitlab.activity_since_hours
-    error_message = "Activity since hours must be greater than 1 and a whole number."
+    condition     = floor(var.gitlab.activity_since_hours) == var.gitlab.activity_since_hours
+    error_message = "Activity since hours must be a whole number. Zero or a negative number ignores the commit activity"
   }
   validation {
     condition     = (can(regex("^authentication-token-group-creation$", var.gitlab.runner_registration_type)) && length(var.gitlab.project_id) != 0) || (!can(regex("^authentication-token-group-creation$", var.gitlab.runner_registration_type)) && length(var.gitlab.project_id) >= 0)
@@ -104,6 +104,7 @@ variable "lambda" {
     memory_size = optional(number, 128)
     rate        = optional(string, "rate(1 minute)")
     runtime     = optional(string, "python3.11")
+    timeout     = optional(number, 10)
   })
   validation {
     condition     = can(regex("^cron|^rate|^off$", var.lambda.rate))
